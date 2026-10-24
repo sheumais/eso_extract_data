@@ -4,12 +4,9 @@
 //!
 //! Use `EsoExtractData -h` for help.
 
-mod cli;
-mod lang_tools;
-mod legacy;
-
 use clap::Parser;
-use cli::{Args, APP_TITLE};
+use eso_extract_data::cli::{self, Args, APP_TITLE};
+use eso_extract_data::lang_tools;
 use eso_common::csv::CsvFile;
 use eso_common::lang::EsoLangFile;
 use eso_common::log::{open_log, set_output_debug_log};
