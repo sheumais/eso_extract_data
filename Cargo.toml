@@ -8,6 +8,7 @@ edition = "2024"
 eso_common = {git = "https://github.com/sheumais/eso_common" }
 clap = { version = "4", features = ["derive"] }
 flate2 = "1"
+aho-corasick = "1"
 
 
 [patch."https://github.com/sheumais/eso_common"]

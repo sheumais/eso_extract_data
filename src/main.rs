@@ -11,6 +11,7 @@ use eso_common::csv::CsvFile;
 use eso_common::lang::EsoLangFile;
 use eso_common::log::{open_log, set_output_debug_log};
 use eso_common::mnf::MnfFile;
+use eso_common::patch_files::{self, PatchExtractKind};
 use eso_common::oodle::load_oodle_lib;
 use eso_common::util::{remove_file_extension, string_ends_with};
 use eso_common::{print_error, print_log};
@@ -51,6 +52,30 @@ fn run() -> i32 {
         print_error!("Outputting additional debug messages.");
         opts.debug_output = true;
         set_output_debug_log(true);
+    }
+
+    // ---- Patch-check extraction (audio MNFs, main MNF, en.lang) ----
+    let patch_kinds = args.patch_extract_kinds();
+    if !patch_kinds.is_empty() {
+        let popts = args.to_patch_extract_options();
+        let mut failed = false;
+        for kind in patch_kinds {
+            // The game folder comes from the main MNF; without it both audio paths must be given.
+            let needs_main = popts.mnf_filename.is_empty()
+                && match kind {
+                    PatchExtractKind::VoEn => popts.vo_en_filename.is_empty(),
+                    PatchExtractKind::VoSoundsets => popts.vo_soundsets_filename.is_empty(),
+                    PatchExtractKind::All => true,
+                };
+            if needs_main {
+                print_error!("Error: give the main MNF (e.g. <game>\\depot\\eso.mnf) as the first argument, or --vo-en / --vo-soundsets.");
+                return -30;
+            }
+            if patch_files::extract(kind, &popts).is_err() {
+                failed = true; // each part has already logged its error
+            }
+        }
+        return if failed { -31 } else { 0 };
     }
 
     // ---- LANG file comparison ----

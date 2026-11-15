@@ -5,6 +5,7 @@
 
 use clap::Parser;
 use eso_common::mnf::MnfExportOptions;
+use eso_common::patch_files::{PatchExtractKind, PatchExtractOptions};
 use eso_common::print_error;
 use eso_common::util::terminate_path;
 
@@ -110,6 +111,25 @@ pub struct Args {
     /// Output additional debug messages.
     #[arg(short = 'v', long)]
     pub debugoutput: bool,
+    /// Copy <game>/vo_en/esoaudioen.mnf to the output path (default ./export/mnf) with a filetable dump (esoaudioen_mnf.csv).
+    #[arg(long = "extract-vo-en")]
+    pub extract_vo_en: bool,
+    /// Copy <game>/vo_soundsets/esoaudiosoundsets.mnf to the output path (default ./export/mnf) with a filetable dump.
+    #[arg(long = "extract-vo-soundsets")]
+    pub extract_vo_soundsets: bool,
+    /// Patch check: eso.mnf, esoaudioen.mnf, esoaudiosoundsets.mnf (each with a filetable dump) and en.lang (+ CSV)
+    /// into the output path (default ./export/patch_check). <game> is the parent of the folder holding the MNF.
+    #[arg(long = "extract-patch-files")]
+    pub extract_patch_files: bool,
+    /// Path to esoaudioen.mnf if it is not at <game>/vo_en/esoaudioen.mnf.
+    #[arg(long = "vo-en")]
+    pub vo_en: Option<String>,
+    /// Path to esoaudiosoundsets.mnf if it is not at <game>/vo_soundsets/esoaudiosoundsets.mnf.
+    #[arg(long = "vo-soundsets")]
+    pub vo_soundsets: Option<String>,
+    /// Only print what the --extract-* options would write.
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
 }
 
 /// Rewrites the two multi-character short options (`-i1`, `-i2`) to their long forms.
@@ -124,6 +144,36 @@ pub fn normalize_args<I: IntoIterator<Item = String>>(args: I) -> Vec<String> {
 }
 
 impl Args {
+    /// What the `--extract-*` flags ask for, in the order it is run. Empty when none was given.
+    pub fn patch_extract_kinds(&self) -> Vec<PatchExtractKind> {
+        if self.extract_patch_files {
+            return vec![PatchExtractKind::All];
+        }
+        let mut kinds = Vec::new();
+        if self.extract_vo_en { kinds.push(PatchExtractKind::VoEn); }
+        if self.extract_vo_soundsets { kinds.push(PatchExtractKind::VoSoundsets); }
+        kinds
+    }
+
+    /// Options for [`eso_common::patch_files::extract`]. The output path is only set when one was given; a folder
+    /// given as the MNF is taken to be the game folder.
+    pub fn to_patch_extract_options(&self) -> PatchExtractOptions {
+        let s = |o: &Option<String>| o.clone().unwrap_or_default();
+        // Accept the game folder as well as the .mnf itself: <game> -> <game>/depot/eso.mnf.
+        let mut mnf = s(&self.mnffile);
+        if std::path::Path::new(&mnf).is_dir() {
+            mnf = std::path::Path::new(&mnf).join("depot").join("eso.mnf").to_string_lossy().into_owned();
+        }
+        PatchExtractOptions {
+            mnf_filename: mnf,
+            vo_en_filename: s(&self.vo_en),
+            vo_soundsets_filename: s(&self.vo_soundsets),
+            output_path: s(&self.outputpath),
+            oodle_path: String::new(),
+            dry_run: self.dry_run,
+        }
+    }
+
     pub fn to_export_options(&self) -> MnfExportOptions {
         let s = |o: &Option<String>| o.clone().unwrap_or_default();
         let diff = |i: usize| self.difflang.as_ref().and_then(|d| d.get(i)).cloned().unwrap_or_default();

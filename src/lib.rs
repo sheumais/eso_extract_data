@@ -5,3 +5,4 @@
 pub mod cli;
 pub mod lang_tools;
 pub mod legacy;
+pub mod scan;
